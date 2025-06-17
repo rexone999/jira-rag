@@ -167,24 +167,18 @@ class AtlassianExtractor:
         # Save JIRA tickets
         jira_df = pd.DataFrame(jira_tickets)
         jira_csv_path = f"data/jira_tickets_{timestamp}.csv"
-        jira_json_path = f"data/jira_tickets_{timestamp}.json"
         
         jira_df.to_csv(jira_csv_path, index=False, encoding='utf-8')
-        with open(jira_json_path, 'w', encoding='utf-8') as f:
-            json.dump(jira_tickets, f, indent=2, ensure_ascii=False)
         
         # Save Confluence pages
         confluence_df = pd.DataFrame(confluence_pages)
         confluence_csv_path = f"data/confluence_pages_{timestamp}.csv"
-        confluence_json_path = f"data/confluence_pages_{timestamp}.json"
         
         confluence_df.to_csv(confluence_csv_path, index=False, encoding='utf-8')
-        with open(confluence_json_path, 'w', encoding='utf-8') as f:
-            json.dump(confluence_pages, f, indent=2, ensure_ascii=False)
         
         print(f"Data saved:")
-        print(f"  JIRA: {jira_csv_path}, {jira_json_path}")
-        print(f"  Confluence: {confluence_csv_path}, {confluence_json_path}")
+        print(f"  JIRA: {jira_csv_path}")
+        print(f"  Confluence: {confluence_csv_path}")
 
 def main():
     try:

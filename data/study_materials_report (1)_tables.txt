@@ -1,0 +1,8 @@
+=== TABLE CONTENT FROM study_materials_report (1).pdf ===
+
+=== PAGE 1 TABLE 1 ===
+Metric	Result
+Total Questions Answered:	17
+Correct Answers:	7
+Overall Performance:	41.2%
+Pages Identified for Review:	0

@@ -8,6 +8,7 @@ from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 import re
 from datetime import datetime
+from pathlib import Path
 
 class VectorDBBuilder:
     def __init__(self, model_name='all-MiniLM-L6-v2'):
@@ -31,16 +32,50 @@ class VectorDBBuilder:
         text = re.sub(r'\s+', ' ', text)
         return text.strip()
     
-    def process_jira_data(self, file_path, use_json=True):
-        """Process JIRA tickets - each ticket as one document"""
-        print("Processing JIRA data...")
+    def process_text_files(self, data_dir):
+        """Process all text files in data directory"""
+        print("Processing text files...")
+        documents = []
         
-        if use_json:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        else:
+        text_files = list(Path(data_dir).glob('*.txt'))
+        
+        for file_path in text_files:
+            print(f"Processing: {file_path}")
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                cleaned_text = self.clean_text(content)
+                
+                if cleaned_text.strip():
+                    doc = {
+                        'text': cleaned_text,
+                        'source': 'text_file',
+                        'source_id': file_path.stem,
+                        'title': file_path.stem,
+                        'url': '',
+                        'metadata': {
+                            'filename': file_path.name,
+                            'file_type': 'text'
+                        }
+                    }
+                    documents.append(doc)
+            except Exception as e:
+                print(f"Error processing {file_path}: {e}")
+        
+        print(f"Created {len(documents)} text file documents")
+        return documents
+    
+    def process_jira_data(self, file_path):
+        """Process JIRA tickets from CSV"""
+        print(f"Processing JIRA data from: {file_path}")
+        
+        try:
             df = pd.read_csv(file_path, encoding='utf-8')
             data = df.to_dict('records')
+        except Exception as e:
+            print(f"Error reading {file_path}: {e}")
+            return []
         
         documents = []
         
@@ -80,16 +115,16 @@ class VectorDBBuilder:
         print(f"Created {len(documents)} JIRA documents")
         return documents
     
-    def process_confluence_data(self, file_path, use_json=True):
-        """Process Confluence pages - each page as one document"""
-        print("Processing Confluence data...")
+    def process_confluence_data(self, file_path):
+        """Process Confluence pages from CSV"""
+        print(f"Processing Confluence data from: {file_path}")
         
-        if use_json:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        else:
+        try:
             df = pd.read_csv(file_path, encoding='utf-8')
             data = df.to_dict('records')
+        except Exception as e:
+            print(f"Error reading {file_path}: {e}")
+            return []
         
         documents = []
         
@@ -121,6 +156,64 @@ class VectorDBBuilder:
         print(f"Created {len(documents)} Confluence documents")
         return documents
     
+    def process_all_data_files(self, data_dir):
+        """Process all files in the data directory"""
+        print(f"Processing all files in {data_dir}...")
+        all_documents = []
+        
+        data_path = Path(data_dir)
+        if not data_path.exists():
+            print(f"Data directory {data_dir} not found!")
+            return []
+        
+        # Process text files (including image contexts, PDF extracts, etc.)
+        text_docs = self.process_text_files(data_dir)
+        all_documents.extend(text_docs)
+        
+        # Process CSV files
+        csv_files = list(data_path.glob('*.csv'))
+        
+        for csv_file in csv_files:
+            filename = csv_file.name.lower()
+            
+            if 'jira' in filename:
+                jira_docs = self.process_jira_data(csv_file)
+                all_documents.extend(jira_docs)
+            elif 'confluence' in filename:
+                confluence_docs = self.process_confluence_data(csv_file)
+                all_documents.extend(confluence_docs)
+            else:
+                # Generic CSV processing
+                print(f"Processing generic CSV: {csv_file}")
+                try:
+                    df = pd.read_csv(csv_file, encoding='utf-8')
+                    for _, row in df.iterrows():
+                        # Try to find text content in the row
+                        text_content = ""
+                        for col in df.columns:
+                            if row[col] and pd.notna(row[col]):
+                                text_content += f"{col}: {row[col]}\n"
+                        
+                        cleaned_text = self.clean_text(text_content)
+                        if cleaned_text.strip():
+                            doc = {
+                                'text': cleaned_text,
+                                'source': 'csv_file',
+                                'source_id': f"{csv_file.stem}_{len(all_documents)}",
+                                'title': csv_file.stem,
+                                'url': '',
+                                'metadata': {
+                                    'filename': csv_file.name,
+                                    'file_type': 'csv'
+                                }
+                            }
+                            all_documents.append(doc)
+                except Exception as e:
+                    print(f"Error processing {csv_file}: {e}")
+        
+        print(f"Total documents processed: {len(all_documents)}")
+        return all_documents
+    
     def create_vector_db(self, documents):
         """Create FAISS vector database"""
         print("Creating embeddings...")
@@ -150,22 +243,33 @@ class VectorDBBuilder:
         return index, embeddings
     
     def save_vector_db(self, index, documents, output_dir='vector_db'):
-        """Save FAISS index and documents"""
+        """Save FAISS index and documents with fixed names"""
         os.makedirs(output_dir, exist_ok=True)
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Fixed filenames
+        index_path = os.path.join(output_dir, 'faiss_index.bin')
+        docs_path = os.path.join(output_dir, 'documents.pkl')
+        
+        # Remove existing files if they exist
+        if os.path.exists(index_path):
+            os.remove(index_path)
+            print(f"Replaced existing {index_path}")
+        
+        if os.path.exists(docs_path):
+            os.remove(docs_path)
+            print(f"Replaced existing {docs_path}")
         
         # Save FAISS index
-        index_path = os.path.join(output_dir, f'faiss_index_{timestamp}.bin')
         faiss.write_index(index, index_path)
         
         # Save documents with metadata
-        docs_path = os.path.join(output_dir, f'documents_{timestamp}.pkl')
         with open(docs_path, 'wb') as f:
             pickle.dump(documents, f)
         
         # Save latest paths for easy access
-        with open(os.path.join(output_dir, 'latest_paths.json'), 'w') as f:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        latest_paths_file = os.path.join(output_dir, 'latest_paths.json')
+        with open(latest_paths_file, 'w') as f:
             json.dump({
                 'index_path': index_path,
                 'documents_path': docs_path,
@@ -176,46 +280,30 @@ class VectorDBBuilder:
         print(f"Vector DB saved:")
         print(f"  Index: {index_path}")
         print(f"  Documents: {docs_path}")
+        print(f"  Latest paths: {latest_paths_file}")
+        print(f"  Total documents: {len(documents)}")
         
         return index_path, docs_path
 
 def main():
     # Configuration
-    USE_JSON = True  # Set to False to use CSV
     DATA_DIR = 'data'
     
-    # Find latest data files
-    files = os.listdir(DATA_DIR)
-    
-    if USE_JSON:
-        jira_files = [f for f in files if f.startswith('jira_tickets_') and f.endswith('.json')]
-        confluence_files = [f for f in files if f.startswith('confluence_pages_') and f.endswith('.json')]
-    else:
-        jira_files = [f for f in files if f.startswith('jira_tickets_') and f.endswith('.csv')]
-        confluence_files = [f for f in files if f.startswith('confluence_pages_') and f.endswith('.csv')]
-    
-    if not jira_files or not confluence_files:
-        print("No data files found. Please run atlassian_extractor.py first.")
+    if not os.path.exists(DATA_DIR):
+        print(f"Data directory {DATA_DIR} not found. Please run data extraction scripts first.")
         return
-    
-    # Use latest files
-    jira_file = os.path.join(DATA_DIR, sorted(jira_files)[-1])
-    confluence_file = os.path.join(DATA_DIR, sorted(confluence_files)[-1])
-    
-    print(f"Using files:")
-    print(f"  JIRA: {jira_file}")
-    print(f"  Confluence: {confluence_file}")
     
     # Build vector database
     builder = VectorDBBuilder()
     
-    # Process data
-    jira_docs = builder.process_jira_data(jira_file, USE_JSON)
-    confluence_docs = builder.process_confluence_data(confluence_file, USE_JSON)
+    # Process all data files
+    all_documents = builder.process_all_data_files(DATA_DIR)
     
-    # Combine all documents
-    all_documents = jira_docs + confluence_docs
-    print(f"Total documents: {len(all_documents)}")
+    if not all_documents:
+        print("No documents found to process!")
+        return
+    
+    print(f"Total documents to vectorize: {len(all_documents)}")
     
     # Create vector database
     index, embeddings = builder.create_vector_db(all_documents)

@@ -1,6 +1,6 @@
 {
-  "index_path": "vector_db\\faiss_index_20250616_172402.bin",
-  "documents_path": "vector_db\\documents_20250616_172402.pkl",
-  "timestamp": "20250616_172402",
-  "total_documents": 72
+  "index_path": "vector_db\\faiss_index.bin",
+  "documents_path": "vector_db\\documents.pkl",
+  "timestamp": "20250617_185340",
+  "total_documents": 85
 }

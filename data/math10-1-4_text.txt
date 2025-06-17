@@ -1,0 +1,301 @@
+=== TEXT CONTENT FROM math10-1-4.pdf ===
+
+=== PAGE 1 TEXT ===
+24
+MATHEMATICS
+3
+3.1 Introduction
+You must have come across situations like the one given below :
+Akhila went to a fair in her village. She wanted to enjoy rides on the Giant Wheel
+and play Hoopla (a game in which you throw a ring on the items kept in a stall, and if
+the ring covers any object completely, you get it). The number of times she played
+Hoopla is half the number of rides she had on the Giant Wheel. If each ride costs
+` 3, and a game of Hoopla costs ` 4, how would you find out the number of rides she
+had and how many times she played Hoopla, provided she spent ` 20.
+May be you will try it by considering different cases. If she has one ride, is it
+possible? Is it possible to have two rides? And so on. Or you may use the knowledge
+of Class IX, to represent such situations as linear equations in two variables.
+PAIR OF LINEAR EQUATIONS
+IN TWO VARIABLES
+Reprint 2025-26
+
+
+=== PAGE 2 TEXT ===
+PAIR OF LINEAR EQUATIONS IN TWO VARIABLES
+25
+Let us try this approach.
+Denote the number of rides that Akhila had by x, and the number of times she
+played Hoopla by y. Now the situation can be represented by the two equations:
+y = 1
+2 x
+(1)
+3x + 4y = 20
+(2)
+Can we find the solutions of this pair of equations? There are several ways of
+finding these, which we will study in this chapter.
+3.2 Graphical Method of Solution of a Pair of Linear Equations
+A pair of linear equations which has no solution, is called an inconsistent pair of linear
+equations. A pair of linear equations in two variables, which has a solution, is called a
+consistent pair of linear equations. A pair of linear equations which are equivalent has
+infinitely many distinct common solutions. Such a pair is called a dependent pair of
+linear equations in two variables. Note that a dependent pair of linear equations is
+always consistent.
+We can now summarise the behaviour of lines representing a pair of linear equations
+in two variables and the existence of solutions as follows:
+(i) the lines may intersect in a single point. In this case, the pair of equations
+has a unique solution (consistent pair of equations).
+(ii) the lines may be parallel. In this case, the equations have no solution
+(inconsistent pair of equations).
+(iii) the lines may be coincident. In this case, the equations have infinitely many
+solutions [dependent (consistent) pair of equations].
+Consider the following three pairs of equations.
+(i) x – 2y = 0 and 3x + 4y – 20 = 0
+(The lines intersect)
+(ii) 2x + 3y – 9 = 0 and 4x + 6y – 18 = 0
+(The lines coincide)
+(iii) x + 2y – 4 = 0 and 2x + 4y – 12 = 0
+(The lines are parallel)
+Let us now write down, and compare, the values of 
+1
+1
+1
+2
+2
+2
+,
+and
+a
+b
+c
+c
+a
+b
+ in all the
+three examples. Here, a1, b1, c1 and a2, b2, c2 denote the coefficents of equations
+given in the general form in Section 3.2.
+Reprint 2025-26
+
+
+=== PAGE 3 TEXT ===
+26
+MATHEMATICS
+Table 3.1
+Sl
+Pair of lines
+1
+2
+a
+a
+1
+2
+b
+b
+1
+2
+c
+c
+Compare the
+Graphical
+Algebraic
+No.
+ratios
+representation interpretation
+1.
+x – 2y = 0
+1
+3
+2
+4
+−
+0
+20
+−
+1
+1
+2
+2
+a
+b
+a
+b
+≠
+Intersecting
+Exactly one
+3x + 4y – 20 = 0
+lines
+solution
+(unique)
+2.
+2x + 3y – 9 = 0
+2
+4
+3
+6
+9
+18
+−
+−
+1
+1
+1
+2
+2
+2
+a
+b
+c
+a
+b
+c
+=
+=
+Coincident
+Infinitely
+4x + 6y – 18 = 0
+lines
+many solutions
+3.
+x + 2y – 4 = 0
+1
+2
+2
+4
+4
+12
+−
+−
+1
+1
+1
+2
+2
+2
+a
+b
+c
+a
+b
+c
+=
+≠
+Parallel lines
+No solution
+2x + 4y – 12 = 0
+From the table above, you can observe that if the lines represented by the equation
+ a1x + b1y + c1 = 0
+and
+a2x + b2y + c2 = 0
+are
+(i) intersecting, then 
+1
+1
+2
+2
+a
+b
+a
+b
+≠
+⋅
+(ii) coincident, then 
+1
+1
+1
+2
+2
+2
+a
+b
+c
+a
+b
+c
+=
+=
+⋅
+(iii) parallel, then 
+1
+1
+1
+2
+2
+2
+a
+b
+c
+a
+b
+c
+=
+≠
+⋅
+In fact, the converse is also true for any pair of lines. You can verify them by
+considering some more examples by yourself.
+Let us now consider some more examples to illustrate it.
+Example 1 : Check graphically whether the pair of equations
+x + 3y = 6
+(1)
+and
+2x – 3y = 12
+(2)
+is consistent. If so, solve them graphically.
+Solution : Let us draw the graphs of the Equations (1) and (2). For this, we find two
+solutions of each of the equations, which are given in Table 3.2
+Reprint 2025-26
+
+
+=== PAGE 4 TEXT ===
+PAIR OF LINEAR EQUATIONS IN TWO VARIABLES
+27
+Fig. 3.1
+Table 3.2
+x
+0
+6
+x
+0
+3
+y = 6
+3
+x
+−
+2
+0
+y = 2
+12
+3
+x −
+– 4
+–2
+Plot the points A(0, 2), B(6, 0),
+P(0, – 4) and Q(3, – 2) on graph
+paper, and join the points to form the
+lines AB and PQ as shown in
+Fig. 3.1.
+We observe that there is a point
+B (6, 0) common to both the lines
+AB and PQ. So, the solution of the
+pair of linear equations is x = 6 and
+y = 0, i.e., the given pair of equations
+is consistent.
+Example 2 : Graphically, find whether the following pair of equations has no solution,
+unique solution or infinitely many solutions:
+5x – 8y + 1 = 0
+(1)
+3x – 24
+5 y  + 3
+5  = 0
+(2)
+Solution : Multiplying Equation (2) by 5 ,
+3  we get
+5x – 8y + 1 = 0
+But,  this is the same as Equation (1). Hence the lines represented by Equations (1)
+and (2) are coincident. Therefore, Equations (1) and (2) have infinitely many solutions.
+Plot few points on the graph and verify it yourself.
+Example 3 : Champa went to a ‘Sale’ to purchase some pants and skirts. When her
+friends asked her how many of each she had bought, she answered, “The number of
+skirts is two less than twice the number of pants purchased. Also, the number of skirts
+is four less than four times the number of pants purchased”. Help her friends to find
+how many pants and skirts Champa bought.
+Reprint 2025-26
+
