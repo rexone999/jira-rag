@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JIRA-RAG Story Creator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #007cba;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .btn {
+            background-color: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        .btn:hover {
+            background-color: #005a87;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .ticket-content {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+        .related-tickets {
+            margin-top: 20px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .related-ticket {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 4px;
+            border-left: 4px solid #007cba;
+        }
+        .ticket-title {
+            font-weight: bold;
+            color: #007cba;
+        }
+        .ticket-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .jira-success {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+        .progress {
+            background-color: #e9ecef;
+            border-radius: 4px;
+            height: 20px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            background-color: #007cba;
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 JIRA-RAG Story Creator</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+            AI-powered JIRA ticket creation with intelligent search and context awareness
+        </p>
+        
+        <form id="storyForm">
+            <div class="form-group">
+                <label for="requirement">Story Requirement:</label>
+                <textarea 
+                    id="requirement" 
+                    name="requirement" 
+                    placeholder="Enter your story requirement here... (e.g., 'As a user, I want to be able to login with my email and password so that I can access my dashboard')"
+                    required
+                ></textarea>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="createInJira" name="createInJira">
+                <label for="createInJira">Create ticket directly in JIRA (requires jira_config.json)</label>
+            </div>
+            
+            <button type="submit" class="btn" id="submitBtn">🚀 Create JIRA Story</button>
+        </form>
+        
+        <div id="progressContainer" style="display: none;">
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div id="progressText" class="loading"></div>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        document.getElementById('storyForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const requirement = document.getElementById('requirement').value.trim();
+            const createInJira = document.getElementById('createInJira').checked;
+            const submitBtn = document.getElementById('submitBtn');
+            const resultDiv = document.getElementById('result');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            if (!requirement) {
+                showResult('Please enter a story requirement.', 'error');
+                return;
+            }
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = '🔄 Processing...';
+            resultDiv.innerHTML = '';
+            progressContainer.style.display = 'block';
+            
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 20;
+                if (progress > 90) progress = 90;
+                progressBar.style.width = progress + '%';
+            }, 500);
+            
+            // Update progress text
+            const progressSteps = [
+                '🤖 Initializing AI...',
+                '🔍 Generating search queries...',
+                '📊 Searching related tickets...',
+                '✍️ Generating ticket content...',
+                '🎫 Creating JIRA ticket...'
+            ];
+            
+            let stepIndex = 0;
+            const stepInterval = setInterval(() => {
+                if (stepIndex < progressSteps.length) {
+                    progressText.textContent = progressSteps[stepIndex];
+                    stepIndex++;
+                }
+            }, 2000);
+            
+            try {
+                const response = await fetch('/create-story', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        requirement: requirement,
+                        create_in_jira: createInJira
+                    })
+                });
+                
+                const data = await response.json();
+                
+                clearInterval(progressInterval);
+                clearInterval(stepInterval);
+                progressBar.style.width = '100%';
+                progressContainer.style.display = 'none';
+                
+                if (response.ok && data.success) {
+                    displayResults(data);
+                } else {
+                    showResult(`Error: ${data.error || 'Failed to create story'}`, 'error');
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                clearInterval(stepInterval);
+                progressContainer.style.display = 'none';
+                showResult(`Network error: ${error.message}`, 'error');
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Create JIRA Story';
+            }
+        });
+        
+        function displayResults(data) {
+            const resultDiv = document.getElementById('result');
+            let html = '<div class="success">✅ Story generated successfully!</div>';
+            
+            // Show JIRA creation result if attempted
+            if (data.jira_created) {
+                html += `
+                    <div class="jira-success">
+                        <h3>🎫 JIRA Ticket Created!</h3>
+                        <p><strong>Ticket Key:</strong> ${data.ticket_key}</p>
+                        <p><strong>URL:</strong> <a href="${data.ticket_url}" target="_blank">${data.ticket_url}</a></p>
+                    </div>
+                `;
+            } else if (data.jira_error) {
+                html += `<div class="error">❌ JIRA Creation Failed: ${data.jira_error}</div>`;
+            }
+            
+            // Show related tickets if found
+            if (data.related_tickets && data.related_tickets.length > 0) {
+                html += `
+                    <div class="related-tickets">
+                        <h3>🔍 Related Tickets Found (${data.related_tickets_count} total)</h3>
+                        <p>These existing tickets were found and used as context:</p>
+                `;
+                
+                data.related_tickets.forEach(ticket => {
+                    html += `
+                        <div class="related-ticket">
+                            <div class="ticket-title">[${ticket.source.toUpperCase()}] ${ticket.title}</div>
+                            <div class="ticket-meta">
+                                Similarity: ${(ticket.similarity_score * 100).toFixed(1)}% | 
+                                <a href="${ticket.url}" target="_blank">View Ticket</a>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            }
+            
+            // Show generated ticket content
+            if (data.ticket_content) {
+                html += `
+                    <div class="ticket-content">
+                        <h3>📝 Generated Ticket Content:</h3>
+                        ${data.ticket_content}
+                    </div>
+                `;
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,5 @@
 import os
 from google import genai
-from search_rag import search_with_fixed_threshold
 import json
 import requests
 from requests.auth import HTTPBasicAuth
@@ -34,7 +33,7 @@ def generate_search_queries(client, user_requirement):
     - Related technical components
     - Common issues or bugs in the same area
     
-    Return only the search queries, one per line, without numbering or explanations.
+    Return only the search queries, one sentence per line, without numbering or explanations.
     Maximum 2 queries.
     """
     
@@ -51,6 +50,9 @@ def generate_search_queries(client, user_requirement):
 
 def search_related_tickets(queries):
     """Search for related tickets using the generated queries"""
+    # Import here to avoid circular imports
+    from search_rag import search_with_fixed_threshold
+    
     all_results = []
     
     for i, query in enumerate(queries, 1):
@@ -102,12 +104,12 @@ def create_jira_ticket_content(client, user_requirement, related_tickets):
     Based on the related tickets above, create a detailed JIRA ticket that includes:
     
     1. **Title**: Clear, concise title for the ticket
-    2. **Description**: Detailed description of what needs to be done
-    3. **Acceptance Criteria**: Specific, testable criteria (use bullet points)
-    4. **Priority**: Suggest priority level (High/Medium/Low) with reasoning
-    5. **Type**: Suggest ticket type (Story/Task/Bug/Epic)
-    6. **Related Work**: Reference to similar tickets found (if any)
-    7. **Technical Considerations**: Any technical aspects based on related tickets
+    2. **Description**: Detailed description of what needs to be done (MAX:200 WORDS)
+    3. **Acceptance Criteria**: Specific, testable criteria (use bullet points)(max 4 bullets)
+    4. **Priority**: Suggest priority level (High/Medium/Low) with reasoning(one word answer)
+    5. **Type**: Suggest ticket type (Story/Task/Bug/Epic)(one word answer)
+    6. **Related Work**: Reference to similar tickets found (if any)(just the ticket number and title and description)
+    7. **Technical Considerations**: Any technical aspects based on related tickets(max 200 words)
     
     Format the response clearly with proper sections and bullet points.
     If related tickets show similar work was done before, mention how this ticket differs or builds upon that work.
