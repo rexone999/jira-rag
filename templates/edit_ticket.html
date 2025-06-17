@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit JIRA Ticket - JIRA-RAG</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #007cba;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .description-textarea {
+            min-height: 200px;
+        }
+        .acceptance-criteria-textarea {
+            min-height: 150px;
+        }
+        .btn {
+            background-color: #007cba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        .btn:hover {
+            background-color: #005a87;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+            width: auto;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .jira-success {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        .related-tickets {
+            margin-bottom: 20px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .related-ticket {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: white;
+            border-radius: 4px;
+            border-left: 4px solid #007cba;
+        }
+        .ticket-title {
+            font-weight: bold;
+            color: #007cba;
+        }
+        .ticket-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✏️ Edit JIRA Ticket</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+            Review and modify the generated ticket before creating it in JIRA
+        </p>
+        
+        <div id="relatedTickets"></div>
+        
+        <form id="editTicketForm">
+            <div class="form-group">
+                <label for="summary">Summary *</label>
+                <input type="text" id="summary" name="summary" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="issueType">Issue Type</label>
+                <select id="issueType" name="issueType">
+                    <option value="Story">Story</option>
+                    <option value="Task">Task</option>
+                    <option value="Bug">Bug</option>
+                    <option value="Epic">Epic</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="priority">Priority</label>
+                <select id="priority" name="priority">
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Low">Low</option>
+                    <option value="Critical">Critical</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="description">Description *</label>
+                <textarea id="description" name="description" class="description-textarea" required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="acceptanceCriteria">Acceptance Criteria</label>
+                <textarea id="acceptanceCriteria" name="acceptanceCriteria" class="acceptance-criteria-textarea"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="storyPoints">Story Points</label>
+                <select id="storyPoints" name="storyPoints">
+                    <option value="">Not set</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                    <option value="8">8</option>
+                    <option value="13">13</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="labels">Labels (comma-separated)</label>
+                <input type="text" id="labels" name="labels" placeholder="e.g., frontend, user-authentication, high-priority">
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="createInJira" name="createInJira">
+                <label for="createInJira">Create ticket in JIRA (requires jira_config.json)</label>
+            </div>
+            
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" onclick="goBack()">← Back</button>
+                <button type="submit" class="btn" id="submitBtn">🎫 Create Ticket</button>
+            </div>
+        </form>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Load ticket data from sessionStorage
+        const ticketData = JSON.parse(sessionStorage.getItem('ticketData') || '{}');
+        
+        if (!ticketData.ticket_data) {
+            document.body.innerHTML = `
+                <div class="container">
+                    <div class="error">No ticket data found. Please go back and generate a ticket first.</div>
+                    <button class="btn" onclick="window.location.href='/'">← Back to Home</button>
+                </div>
+            `;
+        } else {
+            // Populate form with generated data
+            populateForm(ticketData.ticket_data);
+            displayRelatedTickets(ticketData.related_tickets || []);
+        }
+        
+        function populateForm(data) {
+            document.getElementById('summary').value = data.summary || '';
+            document.getElementById('issueType').value = data.issuetype || 'Story';
+            document.getElementById('priority').value = data.priority || 'Medium';
+            document.getElementById('description').value = data.description || '';
+            document.getElementById('acceptanceCriteria').value = data.acceptance_criteria || '';
+            document.getElementById('storyPoints').value = data.story_points || '';
+            document.getElementById('labels').value = (data.labels || []).join(', ');
+        }
+        
+        function displayRelatedTickets(relatedTickets) {
+            if (!relatedTickets.length) return;
+            
+            const container = document.getElementById('relatedTickets');
+            let html = `
+                <div class="related-tickets">
+                    <h3>🔍 Related Tickets (used as context)</h3>
+                    <p>These existing tickets were found and used to help generate this ticket:</p>
+            `;
+            
+            relatedTickets.forEach(ticket => {
+                html += `
+                    <div class="related-ticket">
+                        <div class="ticket-title">[${ticket.source.toUpperCase()}] ${ticket.title}</div>
+                        <div class="ticket-meta">
+                            Similarity: ${(ticket.similarity_score * 100).toFixed(1)}% | 
+                            <a href="${ticket.url}" target="_blank">View Ticket</a>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        document.getElementById('editTicketForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const submitBtn = document.getElementById('submitBtn');
+            const resultDiv = document.getElementById('result');
+            
+            // Collect form data
+            const ticketData = {
+                summary: formData.get('summary'),
+                issuetype: formData.get('issueType'),
+                priority: formData.get('priority'),
+                description: formData.get('description'),
+                acceptance_criteria: formData.get('acceptanceCriteria'),
+                story_points: formData.get('storyPoints') || null,
+                labels: formData.get('labels').split(',').map(l => l.trim()).filter(l => l)
+            };
+            
+            const createInJira = formData.get('createInJira') === 'on';
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = '🔄 Creating...';
+            resultDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch('/create-final-ticket', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        ticket_data: ticketData,
+                        create_in_jira: createInJira
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    let html = '<div class="success">✅ Ticket processed successfully!</div>';
+                    
+                    if (data.jira_created) {
+                        html += `
+                            <div class="jira-success">
+                                <h3>🎫 JIRA Ticket Created!</h3>
+                                <p><strong>Ticket Key:</strong> ${data.ticket_key}</p>
+                                <p><strong>URL:</strong> <a href="${data.ticket_url}" target="_blank">${data.ticket_url}</a></p>
+                            </div>
+                        `;
+                    } else if (data.jira_error) {
+                        html += `<div class="error">❌ JIRA Creation Failed: ${data.jira_error}</div>`;
+                    } else if (createInJira) {
+                        html += '<div class="error">❌ JIRA creation was requested but failed</div>';
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${data.error || 'Failed to create ticket'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Network error: ${error.message}</div>`;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🎫 Create Ticket';
+            }
+        });
+        
+        function goBack() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

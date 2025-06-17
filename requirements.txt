@@ -5,4 +5,5 @@ sentence-transformers==2.2.2
 numpy==1.24.3
 pickle5==0.0.12
 Flask==2.3.3
-python-dotenv==1.0.0
+python-dotenv
+watchdog
