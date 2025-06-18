@@ -1,6 +1,0 @@
-requests==2.31.0
-pandas==2.1.0
-faiss-cpu==1.7.4
-sentence-transformers==2.2.2
-numpy==1.24.3
-pickle5==0.0.12

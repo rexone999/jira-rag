@@ -1,25 +1,20 @@
 {
-  "name": "PO Assist",
-  "description": "AI-Powered Story Generation - Transform BRDs into actionable user stories and EPICs",
-  "key": "po-assist-app",
-  "version": "1.0.0",
+  "name": "PO Assist - AI Story Generator",
+  "description": "Generate EPICs and User Stories from BRDs using AI",
+  "key": "po-assist-jira-optimized",
+  "baseUrl": "https://v0-jira-epic-generator.vercel.app",
   "vendor": {
     "name": "PO Assist",
-    "url": "https://po-assist.vercel.app"
+    "url": "https://v0-jira-epic-generator.vercel.app"
   },
-  "baseUrl": "https://po-assist.vercel.app",
   "authentication": {
-    "type": "jwt"
+    "type": "none"
   },
   "lifecycle": {
-    "installed": "/api/atlassian-connect/installed",
-    "uninstalled": "/api/atlassian-connect/uninstalled"
+    "installed": "/api/atlassian/installed",
+    "uninstalled": "/api/atlassian/uninstalled"
   },
-  "scopes": [
-    "READ",
-    "WRITE",
-    "ACT_AS_USER"
-  ],
+  "apiVersion": 1,
   "modules": {
     "generalPages": [
       {
@@ -28,45 +23,15 @@
         "name": {
           "value": "PO Assist"
         },
-        "url": "/?jwt={jwt}",
+        "url": "/jira-optimized",
         "conditions": [
           {
             "condition": "user_is_logged_in"
           }
         ]
-      }
-    ],
-    "webPanels": [
-      {
-        "key": "po-assist-issue-panel",
-        "location": "atl.jira.view.issue.right.context",
-        "name": {
-          "value": "PO Assistant"
-        },
-        "url": "/issue-panel?issueKey={issue.key}&jwt={jwt}",
-        "conditions": [
-          {
-            "condition": "user_is_logged_in"
-          }
-        ]
-      }
-    ],
-    "configurePage": {
-      "url": "/config?jwt={jwt}",
-      "name": {
-        "value": "Configure PO Assist"
-      }
-    },
-    "webhooks": [
-      {
-        "event": "jira:issue_created",
-        "url": "/api/webhooks/issue-created"
-      },
-      {
-        "event": "jira:issue_updated", 
-        "url": "/api/webhooks/issue-updated"
       }
     ]
   },
-  "apiVersion": 1
+  "scopes": ["READ"],
+  "contexts": ["account"]
 }

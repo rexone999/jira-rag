@@ -15,10 +15,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // ✅ Required iframe headers
+  // ✅ CRITICAL: Jira iframe headers
   async headers() {
     return [
-      // Atlassian Connect descriptor with proper caching
+      // Atlassian Connect descriptor
       {
         source: '/atlassian-connect.json',
         headers: [
@@ -31,26 +31,14 @@ const nextConfig = {
             value: '*',
           },
           {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET, HEAD, OPTIONS',
-          },
-          {
-            key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization',
-          },
-          {
             key: 'Cache-Control',
-            value: 'public, max-age=300, s-maxage=300',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            value: 'public, max-age=60, s-maxage=60',
           },
         ],
       },
-      // ✅ Required iframe headers for Jira embedding
+      // ✅ JIRA IFRAME COMPATIBILITY
       {
-        source: '/jira-app/:path*',
+        source: '/jira-optimized/:path*',
         headers: [
           {
             key: 'X-Frame-Options',
@@ -58,19 +46,11 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors *; default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; connect-src 'self' https:; font-src 'self' data: https:;",
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            value: "frame-ancestors *; default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: data:; style-src 'self' 'unsafe-inline' https: data:; img-src 'self' data: https: blob:; connect-src 'self' https:; font-src 'self' data: https:;",
           },
           {
             key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'no-referrer-when-downgrade',
           },
           {
             key: 'Cross-Origin-Embedder-Policy',
@@ -80,9 +60,13 @@ const nextConfig = {
             key: 'Cross-Origin-Opener-Policy',
             value: 'unsafe-none',
           },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
         ],
       },
-      // API endpoints headers
+      // API endpoints
       {
         source: '/api/:path*',
         headers: [
@@ -96,29 +80,9 @@ const nextConfig = {
           },
           {
             key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization, X-Requested-With',
-          },
-          {
-            key: 'Cache-Control',
-            value: 'no-cache, no-store, must-revalidate',
+            value: 'Content-Type, Authorization',
           },
         ],
-      },
-    ]
-  },
-  // ✅ Redirect root to main app for better UX
-  async redirects() {
-    return [
-      {
-        source: '/',
-        has: [
-          {
-            type: 'query',
-            key: 'jwt',
-          },
-        ],
-        destination: '/jira-app',
-        permanent: false,
       },
     ]
   },
