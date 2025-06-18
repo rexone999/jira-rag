@@ -5,9 +5,9 @@
   "version": "1.0.0",
   "vendor": {
     "name": "PO Assist",
-    "url": "https://po-assist.vercel.app"
+    "url": "https://render-jira.onrender.com"
   },
-  "baseUrl": "https://po-assist.vercel.app",
+  "baseUrl": "https://render-jira.onrender.com",
   "authentication": {
     "type": "jwt"
   },
