@@ -63,13 +63,26 @@ def create_story():
         # Parse the generated content
         ticket_data = parse_ticket_content(ticket_content)
         
+        # Clean up results to ensure JSON serializability (replace NaN/inf with None)
+        def clean(obj):
+            if isinstance(obj, dict):
+                return {k: clean(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean(v) for v in obj]
+            elif isinstance(obj, float):
+                if math.isnan(obj) or math.isinf(obj):
+                    return None
+                return obj
+            else:
+                return obj
+
         response_data = {
             'success': True,
             'ticket_content': ticket_content,
             'ticket_data': ticket_data,
             'related_tickets_count': len(related_tickets),
             'search_queries': queries,
-            'related_tickets': related_tickets[:3]  # Return top 3 for display
+            'related_tickets': related_tickets  # Return top 3 for display
         }
         
         # Step 4: Create in JIRA if requested
@@ -92,8 +105,10 @@ def create_story():
                 'jira_created': False,
                 'jira_error': 'JIRA configuration not found. Create jira_config.json'
             })
-        
-        return jsonify(response_data)
+
+        # Clean the response before sending
+        cleaned_response = clean(response_data)
+        return jsonify(cleaned_response)
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
