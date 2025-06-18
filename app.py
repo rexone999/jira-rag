@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import json
 import os
 import math
+from urllib.parse import unquote
 
 # Import your existing components
 from gemini_test import (
@@ -145,6 +146,33 @@ def search_tickets_route():
     except Exception as e:
         print(f"[ERROR] Exception in /search-tickets: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/downloads/<path:filename>')
+def download_file(filename):
+    downloads_dir = os.path.join(os.getcwd(), 'downloads')
+    print(f"[DEBUG] Download request for: {filename} from {downloads_dir}")
+
+    # Remove suffixes to get the original filename (no extension)
+    for suffix in ['_tables.txt', '_text.txt', '_image_contexts.txt']:
+        if filename.endswith(suffix):
+            filename = filename[:-len(suffix)]
+            break
+
+    # Decode URL encoding (e.g., %20 to space)
+    filename = unquote(filename)
+    print(f"[DEBUG] Normalized filename for search: {filename}")
+
+    # Search for any file with the same base name (case-insensitive, any extension)
+    for root, dirs, files in os.walk(downloads_dir):
+        for f in files:
+            base, ext = os.path.splitext(f)
+            if base.lower() == filename.lower():
+                found_path = os.path.join(root, f)
+                print(f"[DEBUG] Found file at: {found_path}")
+                rel_dir = os.path.relpath(root, downloads_dir)
+                return send_from_directory(os.path.join(downloads_dir, rel_dir), f, as_attachment=True)
+    print(f"[ERROR] File not found: {filename}")
+    return "File not found", 404
 
 if __name__ == '__main__':
     # Disable reloader for production-like stability

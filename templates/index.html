@@ -496,16 +496,30 @@
             `;
             
             data.search_results.forEach(ticket => {
+                let downloadBtn = '';
+                let metaInfo = '';
+                if (ticket.source === 'text_file' && ticket.metadata && ticket.metadata.filename) {
+                    const safeFilename = encodeURIComponent(ticket.metadata.filename);
+                    downloadBtn = `
+                        <a href="/downloads/${safeFilename}" class="btn-secondary" style="margin-top:10px;display:inline-block;text-decoration:none;text-align:center;">
+                            ⬇️ Download Document
+                        </a>
+                    `;
+                    metaInfo = `| <span style="color:#28a745;">Document: ${ticket.metadata.filename}</span>`;
+                } else {
+                    metaInfo = `| <a href="${ticket.url || 'javascript:void(0);'}" target="_blank">View Ticket</a>`;
+                }
                 html += `
                     <div class="search-result-item">
                         <div class="search-result-title">[${ticket.source?.toUpperCase() || 'UNKNOWN'}] ${ticket.title || ticket.summary || 'Untitled'}</div>
                         <div class="search-result-meta">
-                            ${ticket.similarity_score ? `Relevance: ${(ticket.similarity_score * 100).toFixed(1)}%` : ''} | 
-                            <a href="${ticket.url || '#'}" target="_blank">View Ticket</a>
+                            ${ticket.similarity_score ? `Relevance: ${(ticket.similarity_score * 100).toFixed(1)}%` : ''} 
+                            ${metaInfo}
                         </div>
                         <div class="search-result-summary">
                             ${ticket.description || ticket.summary || 'No description available'}
                         </div>
+                        ${downloadBtn}
                     </div>
                 `;
             });
@@ -519,5 +533,7 @@
             searchResultsDiv.innerHTML = `<div class="${type}">${message}</div>`;
         }
     </script>
+</body>
+</html>
 </body>
 </html>
