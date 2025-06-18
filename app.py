@@ -274,6 +274,99 @@ def download_file(filename):
     print(f"[ERROR] File not found: {filename}")
     return "File not found", 404
 
+@app.route('/edit-ticket')
+def edit_ticket():
+    return render_template('edit_ticket.html')
+
+@app.route('/create-final-ticket', methods=['POST'])
+def create_final_ticket():
+    try:
+        data = request.get_json()
+        # Extract all possible fields from the frontend form
+        ticket_data = data.get('ticket_data', {})
+        create_in_jira = data.get('create_in_jira', False)
+        ticket_content = data.get('ticket_content', None)
+
+        # Explicitly extract all fields that may be present in the form
+        summary = ticket_data.get('summary') or ''
+        description = ticket_data.get('description') or ''
+        issue_type = ticket_data.get('issuetype') or ticket_data.get('issue_type') or 'Story'
+        priority = ticket_data.get('priority') or 'Medium'
+        acceptance_criteria = ticket_data.get('acceptance_criteria') or ''
+        story_points = ticket_data.get('story_points') or ''
+        labels = ticket_data.get('labels') or []
+        if isinstance(labels, str):
+            labels = [l.strip() for l in labels.split(',') if l.strip()]
+
+        # Clean up ticket_data to ensure JSON serializability (replace NaN/inf with None)
+        def clean(obj):
+            if isinstance(obj, dict):
+                return {k: clean(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean(v) for v in obj]
+            elif isinstance(obj, float):
+                if math.isnan(obj) or math.isinf(obj):
+                    return None
+                return obj
+            else:
+                return obj
+
+        # If ticket_content is present, parse it to get all possible fields
+        parsed_data = {}
+        if ticket_content:
+            parsed_data = parse_ticket_content(ticket_content)
+        # Merge/override with user-edited fields (user-edited fields take precedence)
+        merged_data = {**parsed_data, **ticket_data}
+        # Ensure all fields are present and up-to-date
+        merged_data.update({
+            'summary': summary,
+            'title': summary,
+            'description': description,
+            'issue_type': issue_type,
+            'priority': priority,
+            'acceptance_criteria': acceptance_criteria,
+            'story_points': story_points,
+            'labels': labels,
+        })
+        merged_data = clean(merged_data)
+
+        # Ensure 'title' and 'issue_type' keys exist for JIRA creation
+        if 'title' not in merged_data or not merged_data['title']:
+            merged_data['title'] = merged_data.get('summary', 'Untitled')
+        if 'issue_type' not in merged_data or not merged_data['issue_type']:
+            merged_data['issue_type'] = merged_data.get('issuetype', 'Task')
+
+        # Load JIRA config
+        jira_config = load_jira_config()
+
+        response_data = {
+            'success': True
+        }
+
+        # Step 4: Create in JIRA if requested
+        if create_in_jira and jira_config:
+            ticket_key, ticket_url = create_jira_ticket(jira_config, merged_data)
+            if ticket_key:
+                response_data.update({
+                    'jira_created': True,
+                    'ticket_key': ticket_key,
+                    'ticket_url': ticket_url
+                })
+            else:
+                response_data.update({
+                    'jira_created': False,
+                    'jira_error': 'Failed to create ticket in JIRA'
+                })
+        elif create_in_jira and not jira_config:
+            response_data.update({
+                'jira_created': False,
+                'jira_error': 'JIRA configuration not found. Create jira_config.json'
+            })
+
+        return jsonify(response_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     # Disable reloader for production-like stability
     # or use exclude_patterns to ignore system packages

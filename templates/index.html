@@ -271,7 +271,7 @@
                 </div>
                 <div class="checkbox-group">
                     <input type="checkbox" id="createInJira" name="createInJira">
-                    <label for="createInJira">Create ticket directly in JIRA (requires jira_config.json)</label>
+                    <label for="createInJira">Create ticket directly in JIRA without editing (requires jira_config.json)(NOTE: YOU CANNOT EDIT THE TICKET)</label>
                 </div>
                 
                 <button type="submit" class="btn" id="submitBtn">🚀 Create JIRA Story</button>
@@ -468,7 +468,21 @@
                 `;
             }
             
+            // Add Edit Ticket button
+            html += `
+                <div style="margin-top:20px;text-align:center;">
+                    <button class="btn-secondary" id="editTicketBtn">✏️ Edit Ticket Before Creating in JIRA</button>
+                </div>
+            `;
+
             resultDiv.innerHTML = html;
+
+            // Attach event handler for Edit Ticket button
+            document.getElementById('editTicketBtn').onclick = function() {
+                // Store ticket data in sessionStorage
+                sessionStorage.setItem('ticketData', JSON.stringify(data));
+                window.location.href = '/edit-ticket';
+            };
         }
         
         function showResult(message, type) {
