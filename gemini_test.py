@@ -3,6 +3,7 @@ from google import genai
 import json
 import requests
 from requests.auth import HTTPBasicAuth
+import re
 
 def load_api_key():
     """Load API key from API_KEY.txt"""
@@ -110,7 +111,7 @@ def create_jira_ticket_content(client, user_requirement, related_tickets):
     5. **Type**: Suggest ticket type (Story/Task/Bug/Epic)(one word answer)
     6. **Related Work**: Reference to similar tickets found (if any)(just the ticket number and title and description)
     7. **Technical Considerations**: Any technical aspects based on related tickets(max 200 words)
-    
+    8. **Story Points**: Generate a number of story points **(1 or 2 or 3 or 5 or 8 or 13)** based on complexity(Just the number and number only)  
     Format the response clearly with proper sections and bullet points.
     If related tickets show similar work was done before, mention how this ticket differs or builds upon that work.
     """
@@ -126,95 +127,54 @@ def create_jira_ticket_content(client, user_requirement, related_tickets):
         return None
 
 def parse_ticket_content(ticket_content):
-    """Parse the generated ticket content into structured data"""
-    lines = ticket_content.split('\n')
-    
-    title = ""
-    description = ""
-    priority = "Medium"
-    issue_type = "Task"
-    
-    current_section = ""
-    collecting_title = False
-    
-    for line in lines:
-        line_stripped = line.strip()
-        
-        # Look for title patterns
-        if ('**Title**' in line_stripped or 
-            line_stripped.startswith('1. **Title**') or 
-            line_stripped.startswith('**1. Title**')):
-            current_section = "title"
-            collecting_title = True
-            # Check if title is on the same line
-            title_part = line_stripped.split(':', 1)
-            if len(title_part) > 1:
-                title = title_part[1].strip()
-                collecting_title = False
-            continue
-            
-        elif ('**Description**' in line_stripped or 
-              line_stripped.startswith('2. **Description**') or 
-              line_stripped.startswith('**2. Description**')):
-            current_section = "description"
-            collecting_title = False
-            continue
-            
-        elif ('**Priority**' in line_stripped or 
-              line_stripped.startswith('4. **Priority**') or 
-              'priority' in line_stripped.lower()):
-            current_section = "priority"
-            collecting_title = False
-            
-        elif ('**Type**' in line_stripped or 
-              line_stripped.startswith('5. **Type**') or 
-              'issue type' in line_stripped.lower() or 
-              'ticket type' in line_stripped.lower()):
-            current_section = "type"
-            collecting_title = False
-            
-        # Process content based on current section
-        if line_stripped and not line_stripped.startswith('**') and not line_stripped.startswith('#'):
-            if collecting_title and not title:
-                title = line_stripped.replace(':', '').strip()
-                collecting_title = False
-            elif current_section == "description":
-                description += line + "\n"
-            elif current_section == "priority":
-                if "High" in line_stripped:
-                    priority = "High"
-                elif "Low" in line_stripped:
-                    priority = "Low"
-            elif current_section == "type":
-                if "Story" in line_stripped:
-                    issue_type = "Story"
-                elif "Bug" in line_stripped:
-                    issue_type = "Bug"
-                elif "Epic" in line_stripped:
-                    issue_type = "Epic"
-    
-    # Clean up the title - remove any markdown or extra formatting
-    if title:
-        title = title.replace('*', '').replace(':', '').strip()
-    
-    # If no title found, try to extract from first meaningful line
-    if not title:
-        for line in lines:
-            line_clean = line.strip().replace('*', '').replace('#', '').strip()
-            if (line_clean and 
-                len(line_clean) > 10 and 
-                len(line_clean) < 100 and
-                not line_clean.lower().startswith(('based on', 'create', 'generate'))):
-                title = line_clean
-                break
-    
-    return {
-        "title": title or "AI Generated Ticket",
-        "description": description.strip() or ticket_content,
-        "priority": priority,
-        "issue_type": issue_type
-    }
+    """
+    Parse the LLM-generated ticket markdown to extract title and description.
+    Returns a dict with at least 'summary' and 'description'.
+    """
+    # Extract title
+    title_match = re.search(r"\**1\. Title:\**\s*(.+)", ticket_content)
+    summary = title_match.group(1).strip() if title_match else "Untitled"
 
+    # Extract description (from *2. Description:* to next numbered section or end)
+    desc_match = re.search(r"\*2\. Description:\*\s*([\s\S]+?)(?:\n\s*\*\d+\.\s|\Z)", ticket_content)
+    description = desc_match.group(1).strip() if desc_match else ticket_content
+
+    # Extract priority
+    severity_match = re.search(r"\*4\. Priority:\*\s*(\w+)", ticket_content)
+    severity = severity_match.group(1).strip() if   severity_match else "Medium"
+
+    # Extract story points
+    story_points_match = re.search(r"\*8\. Story Points:\*\s*(\d+)", ticket_content)
+    story_points = story_points_match.group(1).strip() if story_points_match else "1"
+
+    # Optionally, include the rest of the ticket content as well
+    return {
+        "summary": summary,
+        "description": description,
+        "title": summary,  # Use summary as title
+        "issue_type": "Story",
+        "priority" : severity, # Default to Task if not specified
+        "story_points": story_points  # Default to 1 if not specified
+        # Add more fields if needed
+    }
+'''ticket_data = {
+                    'id': issue['id'],
+                    'key': issue['key'],
+                    'project_key': issue['fields']['project']['key'],
+                    'project_name': issue['fields']['project']['name'],
+                    'summary': issue['fields']['summary'],
+                    'description': issue['fields']['description'],
+                    'status': issue['fields']['status']['name'],
+                    'priority': issue['fields']['priority']['name'] if issue['fields']['priority'] else None,
+                    'issue_type': issue['fields']['issuetype']['name'],
+                    'created': issue['fields']['created'],
+                    'updated': issue['fields']['updated'],
+                    'assignee': issue['fields']['assignee']['displayName'] if issue['fields']['assignee'] else None,
+                    'reporter': issue['fields']['reporter']['displayName'] if issue['fields']['reporter'] else None,
+                    'labels': issue['fields']['labels'],
+                    'components': [comp['name'] for comp in issue['fields']['components']],
+                    'url': f"https://{self.domain}/browse/{issue['key']}"
+                }'''
 def create_jira_ticket(jira_config, ticket_data):
     """Create a JIRA ticket using the REST API"""
     url = f"{jira_config['url']}/rest/api/2/issue"
