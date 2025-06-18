@@ -205,43 +205,91 @@
             font-style: italic;
             padding: 20px;
         }
+        .navbar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #007cba;
+            padding: 0;
+            margin-bottom: 30px;
+            border-radius: 8px 8px 0 0;
+        }
+        .nav-link {
+            color: white;
+            padding: 18px 36px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            transition: background 0.2s;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        .nav-link.active, .nav-link:hover {
+            background-color: #005a87;
+            color: #fff;
+        }
+        /* Hide sections by default, show when active */
+        .section {
+            display: none;
+        }
+        .section.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="navbar">
+            <button class="nav-link active" id="navCreate">Create JIRA Story</button>
+            <button class="nav-link" id="navSearch">Search JIRA Stories</button>
+        </div>
         <h1>🎯 JIRA-RAG Story Creator</h1>
         <p style="text-align: center; color: #666; margin-bottom: 30px;">
             AI-powered JIRA ticket creation with intelligent search and context awareness
         </p>
         
-        <form id="storyForm">
-            <div class="form-group">
-                <label for="requirement">Story Requirement:</label>
-                <textarea 
-                    id="requirement" 
-                    name="requirement" 
-                    placeholder="Enter your story requirement here... (e.g., 'As a user, I want to be able to login with my email and password so that I can access my dashboard')"
-                    required
-                ></textarea>
-            </div>
-            
-            <div class="checkbox-group">
-                <input type="checkbox" id="createInJira" name="createInJira">
-                <label for="createInJira">Create ticket directly in JIRA (requires jira_config.json)</label>
-            </div>
-            
-            <div class="btn-group">
+        <!-- Create JIRA Story Section -->
+        <div id="createSection" class="section active">
+            <form id="storyForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="requirement">Story Requirement:</label>
+                    <textarea 
+                        id="requirement" 
+                        name="requirement" 
+                        placeholder="Enter your story requirement here... (e.g., 'As a user, I want to be able to login with my email and password so that I can access my dashboard')"
+                        required
+                    ></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="docInput">Attach Document (PDF, TXT):</label>
+                    <input type="file" id="docInput" name="docInput" accept=".pdf,.txt">
+                </div>
+                <div class="form-group">
+                    <label for="imgInput">Attach Image:</label>
+                    <input type="file" id="imgInput" name="imgInput" accept="image/*">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="createInJira" name="createInJira">
+                    <label for="createInJira">Create ticket directly in JIRA (requires jira_config.json)</label>
+                </div>
+                
                 <button type="submit" class="btn" id="submitBtn">🚀 Create JIRA Story</button>
-                <button type="button" class="btn-secondary" id="searchBtn">🔍 Search Previous Tickets</button>
+            </form>
+            
+            <div id="progressContainer" style="display: none;">
+                <div class="progress">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div id="progressText" class="loading"></div>
             </div>
-        </form>
-        
-        <div class="section-divider" id="sectionDivider" style="display: none;">
-            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            
+            <div id="result"></div>
         </div>
         
-        <div class="search-section" id="searchSection" style="display: none;">
-            <h2>🔍 Search Previous Tickets</h2>
+        <!-- Search JIRA Stories Section -->
+        <div id="searchSection" class="section">
+            <h2>🔍 Search JIRA Stories</h2>
             <p style="color: #666; margin-bottom: 20px;">
                 Search through existing JIRA tickets to find similar work or get inspiration
             </p>
@@ -262,21 +310,32 @@
             
             <div id="searchResults"></div>
         </div>
-        
-        <div id="progressContainer" style="display: none;">
-            <div class="progress">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-            <div id="progressText" class="loading"></div>
-        </div>
-        
-        <div id="result"></div>
     </div>
 
     <script>
+        // Navbar logic
+        const navCreate = document.getElementById('navCreate');
+        const navSearch = document.getElementById('navSearch');
+        const createSection = document.getElementById('createSection');
+        const searchSection = document.getElementById('searchSection');
+
+        navCreate.addEventListener('click', function() {
+            navCreate.classList.add('active');
+            navSearch.classList.remove('active');
+            createSection.classList.add('active');
+            searchSection.classList.remove('active');
+        });
+
+        navSearch.addEventListener('click', function() {
+            navSearch.classList.add('active');
+            navCreate.classList.remove('active');
+            searchSection.classList.add('active');
+            createSection.classList.remove('active');
+        });
+
         document.getElementById('storyForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const requirement = document.getElementById('requirement').value.trim();
             const createInJira = document.getElementById('createInJira').checked;
             const submitBtn = document.getElementById('submitBtn');
@@ -284,18 +343,20 @@
             const progressContainer = document.getElementById('progressContainer');
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
-            
+            const docInput = document.getElementById('docInput').files[0];
+            const imgInput = document.getElementById('imgInput').files[0];
+
             if (!requirement) {
                 showResult('Please enter a story requirement.', 'error');
                 return;
             }
-            
+
             // Show loading state
             submitBtn.disabled = true;
             submitBtn.textContent = '🔄 Processing...';
             resultDiv.innerHTML = '';
             progressContainer.style.display = 'block';
-            
+
             // Simulate progress
             let progress = 0;
             const progressInterval = setInterval(() => {
@@ -322,19 +383,19 @@
             }, 2000);
             
             try {
+                const formData = new FormData();
+                formData.append('requirement', requirement);
+                formData.append('create_in_jira', createInJira);
+                if (docInput) formData.append('docInput', docInput);
+                if (imgInput) formData.append('imgInput', imgInput);
+
                 const response = await fetch('/create-story', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 
-                        requirement: requirement,
-                        create_in_jira: createInJira
-                    })
+                    body: formData
                 });
-                
+
                 const data = await response.json();
-                
+
                 clearInterval(progressInterval);
                 clearInterval(stepInterval);
                 progressBar.style.width = '100%';
@@ -415,24 +476,6 @@
             resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
         }
         
-        // Search button functionality
-        document.getElementById('searchBtn').addEventListener('click', function() {
-            const searchSection = document.getElementById('searchSection');
-            const sectionDivider = document.getElementById('sectionDivider');
-            
-            if (searchSection.style.display === 'none') {
-                searchSection.style.display = 'block';
-                sectionDivider.style.display = 'block';
-                this.textContent = '🔼 Hide Search';
-                searchSection.scrollIntoView({ behavior: 'smooth' });
-            } else {
-                searchSection.style.display = 'none';
-                sectionDivider.style.display = 'none';
-                this.textContent = '🔍 Search Previous Tickets';
-            }
-        });
-        
-        // Search form functionality
         document.getElementById('searchForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -533,7 +576,5 @@
             searchResultsDiv.innerHTML = `<div class="${type}">${message}</div>`;
         }
     </script>
-</body>
-</html>
 </body>
 </html>

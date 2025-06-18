@@ -3,6 +3,7 @@ import json
 import os
 import math
 from urllib.parse import unquote
+from werkzeug.utils import secure_filename
 
 # Import your existing components
 from gemini_test import (
@@ -22,7 +23,54 @@ from search_rag import (
     search_documents
 )
 
+# Import PDF and image processing functions
+from pdf_processor import process_pdf  # Use the existing process_pdf
+from image_breaker import analyze_image
+
 app = Flask(__name__)
+
+def get_pdf_context_as_string(pdf_path):
+    """
+    Wrapper to use process_pdf and return the extracted content as a string.
+    """
+    from pathlib import Path
+    import io
+    import sys
+
+    # Redirect stdout to capture process_pdf's print output (if needed)
+    old_stdout = sys.stdout
+    sys.stdout = mystdout = io.StringIO()
+    # Prepare containers to collect extracted content
+    extracted = {"text": [], "tables": [], "images": []}
+
+    # Patch save_pdf_content to collect content instead of saving to disk
+    import pdf_processor
+    original_save_pdf_content = pdf_processor.save_pdf_content
+
+    def collect_content(pdf_path, texts, tables, image_contexts):
+        if texts:
+            extracted["text"].extend(texts)
+        if tables:
+            extracted["tables"].extend(tables)
+        if image_contexts:
+            extracted["images"].extend(image_contexts)
+
+    pdf_processor.save_pdf_content = collect_content
+    try:
+        process_pdf(pdf_path)
+    finally:
+        pdf_processor.save_pdf_content = original_save_pdf_content
+        sys.stdout = old_stdout
+
+    # Combine all extracted content into a single string
+    context = ""
+    if extracted["text"]:
+        context += "\n".join(extracted["text"]) + "\n"
+    if extracted["tables"]:
+        context += "\n".join(extracted["tables"]) + "\n"
+    if extracted["images"]:
+        context += "\n".join(extracted["images"]) + "\n"
+    return context.strip()
 
 @app.route('/')
 def index():
@@ -31,13 +79,50 @@ def index():
 @app.route('/create-story', methods=['POST'])
 def create_story():
     try:
-        data = request.get_json()
-        requirement = data.get('requirement', '')
-        create_in_jira = data.get('create_in_jira', False)
-        
+        # Accept both JSON and multipart form
+        if request.content_type.startswith('multipart/form-data'):
+            requirement = request.form.get('requirement', '')
+            create_in_jira = request.form.get('create_in_jira', 'false') == 'true'
+            doc_file = request.files.get('docInput')
+            img_file = request.files.get('imgInput')
+        else:
+            data = request.get_json()
+            requirement = data.get('requirement', '')
+            create_in_jira = data.get('create_in_jira', False)
+            doc_file = None
+            img_file = None
+
         if not requirement:
             return jsonify({'error': 'Requirement is required'}), 400
-        
+
+        # Process document and image if provided
+        doc_context = None
+        if doc_file:
+            filename = secure_filename(doc_file.filename)
+            temp_path = os.path.join('temp_uploads', filename)
+            os.makedirs('temp_uploads', exist_ok=True)
+            doc_file.save(temp_path)
+            # Use process_pdf and collect context as string
+            doc_context = get_pdf_context_as_string(temp_path)
+            os.remove(temp_path)
+        img_context = None
+        if img_file:
+            filename = secure_filename(img_file.filename)
+            temp_path = os.path.join('temp_uploads', filename)
+            os.makedirs('temp_uploads', exist_ok=True)
+            img_file.save(temp_path)
+            img_context = analyze_image(temp_path)  # Should return extracted image context
+            os.remove(temp_path)
+
+        # Combine contexts if both are present
+        extra_context = None
+        if doc_context and img_context:
+            extra_context = f"Document Context:\n{doc_context}\n\nImage Context:\n{img_context}"
+        elif doc_context:
+            extra_context = doc_context
+        elif img_context:
+            extra_context = img_context
+
         # Initialize Gemini
         client = initialize_gemini()
         if not client:
@@ -54,8 +139,8 @@ def create_story():
         if queries:
             related_tickets = search_related_tickets(queries)
         
-        # Step 3: Generate JIRA ticket content
-        ticket_content = create_jira_ticket_content(client, requirement, related_tickets)
+        # Step 3: Generate JIRA ticket content (now with extra_context)
+        ticket_content = create_jira_ticket_content(client, requirement, related_tickets, extra_context)
         
         if not ticket_content:
             return jsonify({'error': 'Failed to generate ticket content'}), 500

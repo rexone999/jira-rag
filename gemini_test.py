@@ -75,7 +75,7 @@ def search_related_tickets(queries):
     
     return unique_results
 
-def create_jira_ticket_content(client, user_requirement, related_tickets):
+def create_jira_ticket_content(client, user_requirement, related_tickets, extra_context=None):
     """Generate JIRA ticket content based on requirement and related tickets"""
     
     # Prepare context from related tickets
@@ -101,7 +101,11 @@ def create_jira_ticket_content(client, user_requirement, related_tickets):
     "{user_requirement}"
     
     {context}
-    
+    """
+    if extra_context:
+        prompt += f"\n\nADDITIONAL CONTEXT FROM USER DOCUMENTS/IMAGES:\n{extra_context}\n"
+
+    prompt += """
     Based on the related tickets above, create a detailed JIRA ticket that includes:
     
     1. **Title**: Clear, concise title for the ticket
