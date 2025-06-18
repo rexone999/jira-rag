@@ -8,7 +8,7 @@ import os
 DB_DIR = 'vector_db/'
 
 def search_similar(query, similarity_threshold=0.4, top_k=15):
-    """Search for similar documents with similarity threshold filtering"""
+    """Main search function - searches for similar documents with similarity threshold filtering"""
     # Load latest paths
     with open('vector_db/latest_paths.json', 'r') as f:
         paths = json.load(f)
@@ -45,7 +45,7 @@ def search_similar(query, similarity_threshold=0.4, top_k=15):
     return results
 
 def search_tickets(query, similarity_threshold=0.4):
-    """Search for tickets related to a query with similarity threshold"""
+    """Wrapper for printing nicely"""
     try:
         results = search_similar(query, similarity_threshold=similarity_threshold)
         

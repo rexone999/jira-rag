@@ -70,6 +70,28 @@
             background-color: #ccc;
             cursor: not-allowed;
         }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            flex: 1;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .btn-secondary:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
         .result {
             margin-top: 20px;
             padding: 15px;
@@ -141,6 +163,48 @@
             border-radius: 4px;
             transition: width 0.3s ease;
         }
+        .section-divider {
+            text-align: center;
+            margin: 40px 0;
+            color: #666;
+            font-size: 18px;
+        }
+        .search-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #dee2e6;
+        }
+        .search-results {
+            margin-top: 20px;
+        }
+        .search-result-item {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #28a745;
+        }
+        .search-result-title {
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 5px;
+        }
+        .search-result-meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .search-result-summary {
+            color: #333;
+            line-height: 1.4;
+        }
+        .no-results {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -166,8 +230,38 @@
                 <label for="createInJira">Create ticket directly in JIRA (requires jira_config.json)</label>
             </div>
             
-            <button type="submit" class="btn" id="submitBtn">🚀 Create JIRA Story</button>
+            <div class="btn-group">
+                <button type="submit" class="btn" id="submitBtn">🚀 Create JIRA Story</button>
+                <button type="button" class="btn-secondary" id="searchBtn">🔍 Search Previous Tickets</button>
+            </div>
         </form>
+        
+        <div class="section-divider" id="sectionDivider" style="display: none;">
+            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        </div>
+        
+        <div class="search-section" id="searchSection" style="display: none;">
+            <h2>🔍 Search Previous Tickets</h2>
+            <p style="color: #666; margin-bottom: 20px;">
+                Search through existing JIRA tickets to find similar work or get inspiration
+            </p>
+            
+            <form id="searchForm">
+                <div class="form-group">
+                    <label for="searchQuery">Search Query:</label>
+                    <textarea 
+                        id="searchQuery" 
+                        name="searchQuery" 
+                        placeholder="Enter your search query... (e.g., 'login functionality', 'user authentication', 'dashboard features')"
+                        required
+                    ></textarea>
+                </div>
+                
+                <button type="submit" class="btn" id="searchSubmitBtn">🔍 Search Tickets</button>
+            </form>
+            
+            <div id="searchResults"></div>
+        </div>
         
         <div id="progressContainer" style="display: none;">
             <div class="progress">
@@ -319,6 +413,110 @@
         function showResult(message, type) {
             const resultDiv = document.getElementById('result');
             resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+        
+        // Search button functionality
+        document.getElementById('searchBtn').addEventListener('click', function() {
+            const searchSection = document.getElementById('searchSection');
+            const sectionDivider = document.getElementById('sectionDivider');
+            
+            if (searchSection.style.display === 'none') {
+                searchSection.style.display = 'block';
+                sectionDivider.style.display = 'block';
+                this.textContent = '🔼 Hide Search';
+                searchSection.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                searchSection.style.display = 'none';
+                sectionDivider.style.display = 'none';
+                this.textContent = '🔍 Search Previous Tickets';
+            }
+        });
+        
+        // Search form functionality
+        document.getElementById('searchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const searchQuery = document.getElementById('searchQuery').value.trim();
+            const searchSubmitBtn = document.getElementById('searchSubmitBtn');
+            const searchResultsDiv = document.getElementById('searchResults');
+            
+            if (!searchQuery) {
+                showSearchResult('Please enter a search query.', 'error');
+                return;
+            }
+            
+            // Show loading state
+            searchSubmitBtn.disabled = true;
+            searchSubmitBtn.textContent = '🔄 Searching...';
+            searchResultsDiv.innerHTML = '<div class="loading">🔍 Searching through tickets...</div>';
+            
+            try {
+                const response = await fetch('/search-tickets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        search_query: searchQuery
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    displaySearchResults(data);
+                } else {
+                    showSearchResult(`Error: ${data.error || 'Failed to search tickets'}`, 'error');
+                }
+            } catch (error) {
+                showSearchResult(`Network error: ${error.message}`, 'error');
+            } finally {
+                // Reset button state
+                searchSubmitBtn.disabled = false;
+                searchSubmitBtn.textContent = '🔍 Search Tickets';
+            }
+        });
+        
+        function displaySearchResults(data) {
+            const searchResultsDiv = document.getElementById('searchResults');
+            
+            if (!data.search_results || data.search_results.length === 0) {
+                searchResultsDiv.innerHTML = `
+                    <div class="no-results">
+                        <h3>No tickets found</h3>
+                        <p>Try using different keywords or broader search terms.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <div class="search-results">
+                    <h3>🎯 Search Results (${data.results_count} tickets found)</h3>
+            `;
+            
+            data.search_results.forEach(ticket => {
+                html += `
+                    <div class="search-result-item">
+                        <div class="search-result-title">[${ticket.source?.toUpperCase() || 'UNKNOWN'}] ${ticket.title || ticket.summary || 'Untitled'}</div>
+                        <div class="search-result-meta">
+                            ${ticket.similarity_score ? `Relevance: ${(ticket.similarity_score * 100).toFixed(1)}%` : ''} | 
+                            <a href="${ticket.url || '#'}" target="_blank">View Ticket</a>
+                        </div>
+                        <div class="search-result-summary">
+                            ${ticket.description || ticket.summary || 'No description available'}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            searchResultsDiv.innerHTML = html;
+        }
+        
+        function showSearchResult(message, type) {
+            const searchResultsDiv = document.getElementById('searchResults');
+            searchResultsDiv.innerHTML = `<div class="${type}">${message}</div>`;
         }
     </script>
 </body>

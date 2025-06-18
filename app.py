@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 import json
 import os
+import math
 
 # Import your existing components
 from gemini_test import (
@@ -11,6 +12,13 @@ from gemini_test import (
     parse_ticket_content,
     create_jira_ticket,
     load_jira_config
+)
+
+# Import search_rag functions
+from search_rag import (
+    search_similar,
+    search_tickets,
+    search_documents
 )
 
 app = Flask(__name__)
@@ -87,6 +95,55 @@ def create_story():
         return jsonify(response_data)
     
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/search-tickets', methods=['POST'])
+def search_tickets_route():
+    try:
+        data = request.get_json()
+        search_query = data.get('search_query', '')
+        print(f"[DEBUG] Received search query: {search_query}")
+
+        if not search_query:
+            print("[DEBUG] No search query provided.")
+            return jsonify({'error': 'Search query is required'}), 400
+
+        # Search for tickets using the search_rag functions
+        search_results = search_similar(search_query, similarity_threshold=0.4, top_k=15)
+        print(f"[DEBUG] search_similar returned {len(search_results)} results with threshold 0.4")
+
+        if not search_results:
+            search_results = search_similar(search_query, similarity_threshold=0.3, top_k=15)
+            print(f"[DEBUG] search_similar returned {len(search_results)} results with threshold 0.3")
+
+        # Clean up results to ensure JSON serializability (replace NaN/inf with None)
+        def clean(obj):
+            if isinstance(obj, dict):
+                return {k: clean(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean(v) for v in obj]
+            elif isinstance(obj, float):
+                if math.isnan(obj) or math.isinf(obj):
+                    return None
+                return obj
+            else:
+                return obj
+
+        cleaned_results = clean(search_results)
+        print(f"[DEBUG] Cleaned results for JSON serialization.")
+
+        response_data = {
+            'success': True,
+            'search_query': search_query,
+            'results_count': len(cleaned_results),
+            'search_results': cleaned_results
+        }
+
+        print(f"[DEBUG] Sending response with {len(cleaned_results)} results.")
+        return jsonify(response_data)
+
+    except Exception as e:
+        print(f"[ERROR] Exception in /search-tickets: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
