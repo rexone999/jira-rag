@@ -75,8 +75,161 @@ def search_related_tickets(queries):
     
     return unique_results
 
+def classify_task_complexity(client, user_requirement, context):
+    """Classify the task complexity as SMALL, MEDIUM, or BIG"""
+    prompt = f"""
+    Analyze this user requirement and classify its complexity:
+    
+    REQUIREMENT: "{user_requirement}"
+    
+    {context}
+    
+    Classify this task as one of the following based on scope, effort, and complexity:
+    
+    SMALL: Simple features, bug fixes, minor enhancements that can be completed in 1-2 stories
+    - Examples: UI text changes, simple form additions, basic configuration updates
+    
+    MEDIUM: Moderate features requiring multiple components, integration work, needs 1 epic with 4-5 stories
+    - Examples: New feature modules, API integrations, workflow enhancements
+    
+    BIG: Complex features, system-wide changes, major new functionality requiring 3-4 epics with 10-20 stories
+    - Examples: Complete new systems, major architectural changes, large-scale integrations
+    
+    Return ONLY one word: SMALL, MEDIUM, or BIG
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt]
+        )
+        classification = response.text.strip().upper()
+        if classification in ['SMALL', 'MEDIUM', 'BIG']:
+            return classification
+        else:
+            return 'MEDIUM'  # Default fallback
+    except Exception as e:
+        print(f"Error classifying task complexity: {e}")
+        return 'MEDIUM'  # Default fallback
+
+def small_agent(client, user_requirement, context):
+    """Generate 1-2 stories for SMALL tasks"""
+    prompt = f"""
+    Create 1-2 JIRA stories for this SMALL task:
+    
+    REQUIREMENT: "{user_requirement}"
+    
+    {context}
+    
+    Generate 1-2 user stories that cover this requirement completely. Each story should include:
+    
+    1. **Story Title**: Clear, concise title
+    2. **Description**: Detailed description (MAX: 150 words)
+    3. **Acceptance Criteria**: 3-4 specific, testable criteria (bullet points)
+    4. **Story Points**: 1, 2, 3, 5, 8, or 13 based on complexity
+    5. **Priority**: High/Medium/Low
+    
+    Format each story clearly and number them (Story 1, Story 2, etc.).
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt]
+        )
+        return response.text
+    except Exception as e:
+        print(f"Error in small_agent: {e}")
+        return None
+
+def medium_agent(client, user_requirement, context):
+    """Generate 1 epic and 4-5 stories for MEDIUM tasks"""
+    prompt = f"""
+    Create 1 EPIC and 4-5 user stories for this MEDIUM task:
+    
+    REQUIREMENT: "{user_requirement}"
+    
+    {context}
+    
+    First, create 1 EPIC that encompasses the entire requirement:
+    
+    **EPIC:**
+    1. **Epic Title**: High-level feature title
+    2. **Epic Description**: Overview of the complete feature (MAX: 200 words)
+    3. **Business Value**: Why this epic is important
+    4. **Acceptance Criteria**: High-level criteria for epic completion
+    
+    Then create 4-5 user stories that break down this epic:
+    
+    **STORIES:**
+    For each story include:
+    1. **Story Title**: Clear, specific title
+    2. **Description**: Detailed description (MAX: 150 words)
+    3. **Acceptance Criteria**: 3-4 specific, testable criteria (bullet points)
+    4. **Story Points**: 1, 2, 3, 5, 8, or 13 based on complexity
+    5. **Priority**: High/Medium/Low
+    6. **Epic Link**: Reference to the parent epic
+    
+    Number each story (Story 1, Story 2, etc.) and ensure they collectively complete the epic.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt]
+        )
+        return response.text
+    except Exception as e:
+        print(f"Error in medium_agent: {e}")
+        return None
+
+def large_agent(client, user_requirement, context):
+    """Generate 3-4 epics and 10-20 stories for BIG tasks"""
+    prompt = f"""
+    Create 3-4 EPICS and 10-20 user stories for this BIG task:
+    
+    REQUIREMENT: "{user_requirement}"
+    
+    {context}
+    
+    First, create 3-4 EPICS that break down the requirement into major components:
+    
+    **EPICS:**
+    For each epic include:
+    1. **Epic Title**: High-level component title
+    2. **Epic Description**: Overview of this component (MAX: 200 words)
+    3. **Business Value**: Why this epic is important
+    4. **Dependencies**: How this epic relates to others
+    5. **Acceptance Criteria**: High-level criteria for epic completion
+    
+    Then create 10-20 user stories distributed across these epics:
+    
+    **STORIES:**
+    For each story include:
+    1. **Story Title**: Clear, specific title
+    2. **Description**: Detailed description (MAX: 150 words)
+    3. **Acceptance Criteria**: 3-4 specific, testable criteria (bullet points)
+    4. **Story Points**: 1, 2, 3, 5, 8, or 13 based on complexity
+    5. **Priority**: High/Medium/Low
+    6. **Epic Link**: Reference to the parent epic
+    7. **Dependencies**: Any dependencies on other stories
+    
+    Organize stories by epic and number them within each epic (Epic 1 - Story 1, Epic 1 - Story 2, etc.).
+    Ensure the stories collectively complete all epics and the overall requirement.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt]
+        )
+        return response.text
+    except Exception as e:
+        print(f"Error in large_agent: {e}")
+        return None
+
 def create_jira_ticket_content(client, user_requirement, related_tickets, extra_context=None):
-    """Generate JIRA ticket content based on requirement and related tickets"""
+    """Generate JIRA ticket content using sequential agents based on task complexity"""
     
     # Prepare context from related tickets
     context = ""
@@ -96,71 +249,93 @@ def create_jira_ticket_content(client, user_requirement, related_tickets, extra_
             preview = ticket['text'][:200] + "..." if len(ticket['text']) > 200 else ticket['text']
             context += f"   Preview: {preview}\n"
     
-    prompt = f"""
-    Create a comprehensive JIRA ticket based on this requirement:
-    "{user_requirement}"
-    
-    {context}
-    """
     if extra_context:
-        prompt += f"\n\nADDITIONAL CONTEXT FROM USER DOCUMENTS/IMAGES:\n{extra_context}\n"
-
-    prompt += """
-    Based on the related tickets above, create a detailed JIRA ticket that includes:
+        context += f"\n\nADDITIONAL CONTEXT FROM USER DOCUMENTS/IMAGES:\n{extra_context}\n"
     
-    1. **Title**: Clear, concise title for the ticket
-    2. **Description**: Detailed description of what needs to be done (MAX:200 WORDS)
-    3. **Acceptance Criteria**: Specific, testable criteria (use bullet points)(max 4 bullets)
-    4. **Priority**: Suggest priority level (High/Medium/Low) with reasoning(one word answer)
-    5. **Type**: Suggest ticket type (Story/Task/Bug/Epic)(one word answer)
-    6. **Related Work**: Reference to similar tickets found (if any)(just the ticket number and title and description)
-    7. **Technical Considerations**: Any technical aspects based on related tickets(max 200 words)
-    8. **Story Points**: Generate a number of story points **(1 or 2 or 3 or 5 or 8 or 13)** based on complexity(Just the number and number only)  
-    Format the response clearly with proper sections and bullet points.
-    If related tickets show similar work was done before, mention how this ticket differs or builds upon that work.
-    """
+    # Step 1: Classify task complexity
+    print("\n🤖 Step 1: Classifying task complexity...")
+    complexity = classify_task_complexity(client, user_requirement, context)
+    print(f"📊 Task classified as: {complexity}")
     
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[prompt]
-        )
-        return response.text
-    except Exception as e:
-        print(f"Error generating JIRA ticket: {e}")
-        return None
+    # Step 2: Trigger appropriate agent based on complexity
+    print(f"\n🤖 Step 2: Triggering {complexity.lower()}_agent...")
+    
+    if complexity == 'SMALL':
+        return small_agent(client, user_requirement, context)
+    elif complexity == 'MEDIUM':
+        return medium_agent(client, user_requirement, context)
+    elif complexity == 'BIG':
+        return large_agent(client, user_requirement, context)
+    else:
+        # Fallback to medium if classification fails
+        return medium_agent(client, user_requirement, context)
 
 def parse_ticket_content(ticket_content):
     """
-    Parse the LLM-generated ticket markdown to extract title and description.
-    Returns a dict with at least 'summary' and 'description'.
+    Parse the LLM-generated content to extract tickets/epics.
+    Returns a list of ticket dictionaries for creation.
     """
-    # Extract title
-    title_match = re.search(r"\**1\. Title:\**\s*(.+)", ticket_content)
-    summary = title_match.group(1).strip() if title_match else "Untitled"
-
-    # Extract description (from *2. Description:* to next numbered section or end)
-    desc_match = re.search(r"\*2\. Description:\*\s*([\s\S]+?)(?:\n\s*\*\d+\.\s|\Z)", ticket_content)
-    description = desc_match.group(1).strip() if desc_match else ticket_content
-
-    # Extract priority
-    severity_match = re.search(r"\*4\. Priority:\*\s*(\w+)", ticket_content)
-    severity = severity_match.group(1).strip() if   severity_match else "Medium"
-
-    # Extract story points
-    story_points_match = re.search(r"\*8\. Story Points:\*\s*(\d+)", ticket_content)
-    story_points = story_points_match.group(1).strip() if story_points_match else "1"
-
-    # Optionally, include the rest of the ticket content as well
-    return {
-        "summary": summary,
-        "description": description,
-        "title": summary,  # Use summary as title
-        "issue_type": "Story",
-        "priority" : severity, # Default to Task if not specified
-        "story_points": story_points  # Default to 1 if not specified
-        # Add more fields if needed
-    }
+    tickets = []
+    
+    # Split content into sections for epics and stories
+    lines = ticket_content.split('\n')
+    current_ticket = {}
+    
+    for line in lines:
+        line = line.strip()
+        
+        # Look for Epic or Story titles
+        if line.startswith('**Epic') or line.startswith('**Story'):
+            if current_ticket:
+                tickets.append(current_ticket)
+            current_ticket = {
+                "title": "Untitled",
+                "description": "",
+                "issue_type": "Epic" if "Epic" in line else "Story",
+                "priority": "Medium",
+                "story_points": "3"
+            }
+        
+        # Extract titles
+        elif line.startswith('1. **Epic Title**') or line.startswith('1. **Story Title**'):
+            title_text = line.split(':', 1)
+            if len(title_text) > 1:
+                current_ticket["title"] = title_text[1].strip()
+        
+        # Extract descriptions
+        elif line.startswith('2. **Description**') or line.startswith('2. **Epic Description**'):
+            desc_text = line.split(':', 1)
+            if len(desc_text) > 1:
+                current_ticket["description"] = desc_text[1].strip()
+        
+        # Extract priority
+        elif 'Priority' in line and ':' in line:
+            priority_text = line.split(':', 1)[1].strip()
+            if priority_text in ['High', 'Medium', 'Low']:
+                current_ticket["priority"] = priority_text
+        
+        # Extract story points
+        elif 'Story Points' in line and ':' in line:
+            points_text = line.split(':', 1)[1].strip()
+            if points_text.isdigit():
+                current_ticket["story_points"] = points_text
+    
+    # Add the last ticket
+    if current_ticket:
+        tickets.append(current_ticket)
+    
+    # If no structured tickets found, create a single ticket from the content
+    if not tickets:
+        # Fallback: treat entire content as a single story
+        tickets.append({
+            "title": "Generated Requirement",
+            "description": ticket_content[:500] if len(ticket_content) > 500 else ticket_content,
+            "issue_type": "Story",
+            "priority": "Medium",
+            "story_points": "3"
+        })
+    
+    return tickets
 '''ticket_data = {
                     'id': issue['id'],
                     'key': issue['key'],
@@ -240,6 +415,34 @@ def create_jira_ticket(jira_config, ticket_data):
         print(f"Error creating JIRA ticket: {e}")
         return None, None
 
+def create_multiple_jira_tickets(jira_config, tickets_data):
+    """Create multiple JIRA tickets and return results"""
+    results = []
+    
+    for i, ticket_data in enumerate(tickets_data, 1):
+        print(f"\n🔄 Creating ticket {i}/{len(tickets_data)}: {ticket_data['title']}")
+        
+        ticket_key, ticket_url = create_jira_ticket(jira_config, ticket_data)
+        
+        if ticket_key:
+            results.append({
+                'success': True,
+                'key': ticket_key,
+                'url': ticket_url,
+                'title': ticket_data['title'],
+                'type': ticket_data['issue_type']
+            })
+            print(f"✅ Created {ticket_data['issue_type']}: {ticket_key}")
+        else:
+            results.append({
+                'success': False,
+                'title': ticket_data['title'],
+                'type': ticket_data['issue_type']
+            })
+            print(f"❌ Failed to create {ticket_data['issue_type']}: {ticket_data['title']}")
+    
+    return results
+
 def load_jira_config():
     """Load JIRA configuration from jira_config.json"""
     try:
@@ -296,38 +499,51 @@ def create_jira_ticket_interactive():
         else:
             print("Skipping search due to no queries...")
         
-        # Step 3: Generate JIRA ticket
-        print("\n📋 Step 3: Generating JIRA ticket content...")
+        # Step 3: Generate JIRA tickets based on complexity
+        print("\n📋 Step 3: Generating JIRA tickets...")
         ticket_content = create_jira_ticket_content(client, user_requirement, related_tickets)
         
         if ticket_content:
             print("\n" + "="*80)
-            print("🎟️  GENERATED JIRA TICKET")
+            print("🎟️  GENERATED JIRA TICKETS")
             print("="*80)
             print(ticket_content)
             print("="*80)
             
             # Ask for confirmation to create in JIRA
             if jira_config:
-                create_ticket = input("\n❓ Do you want to create this ticket in JIRA? (Y/N): ").strip().upper()
+                create_ticket = input("\n❓ Do you want to create these tickets in JIRA? (Y/N): ").strip().upper()
                 
                 if create_ticket == 'Y':
-                    print("\n🔄 Creating ticket in JIRA...")
+                    print("\n🔄 Creating tickets in JIRA...")
                     
-                    # Parse the generated content
-                    ticket_data = parse_ticket_content(ticket_content)
+                    # Parse the generated content into multiple tickets
+                    tickets_data = parse_ticket_content(ticket_content)
+                    print(f"📊 Found {len(tickets_data)} tickets to create")
                     
-                    # Create the ticket
-                    ticket_key, ticket_url = create_jira_ticket(jira_config, ticket_data)
+                    # Create multiple tickets
+                    results = create_multiple_jira_tickets(jira_config, tickets_data)
                     
-                    if ticket_key:
-                        print(f"✅ Successfully created JIRA ticket!")
-                        print(f"🎫 Ticket Key: {ticket_key}")
-                        print(f"🔗 URL: {ticket_url}")
-                    else:
-                        print("❌ Failed to create JIRA ticket")
+                    # Summary of results
+                    successful = [r for r in results if r['success']]
+                    failed = [r for r in results if not r['success']]
+                    
+                    print(f"\n📊 CREATION SUMMARY:")
+                    print(f"✅ Successfully created: {len(successful)} tickets")
+                    print(f"❌ Failed to create: {len(failed)} tickets")
+                    
+                    if successful:
+                        print(f"\n🎫 CREATED TICKETS:")
+                        for ticket in successful:
+                            print(f"   {ticket['type']}: {ticket['key']} - {ticket['title']}")
+                            print(f"   🔗 {ticket['url']}")
+                    
+                    if failed:
+                        print(f"\n❌ FAILED TICKETS:")
+                        for ticket in failed:
+                            print(f"   {ticket['type']}: {ticket['title']}")
                 else:
-                    print("📝 Ticket not created in JIRA")
+                    print("📝 Tickets not created in JIRA")
             else:
                 print("\n💡 JIRA integration not configured. Set up jira_config.json to create tickets directly.")
         else:
